@@ -69,15 +69,33 @@ async function getPackageVersion(repoName, defaultBranch = 'main') {
   }
 }
 
-// Compare semantic versions descending (newest first)
+function parseVersion(v) {
+  return v.split('.').map(n => parseInt(n, 10));
+}
+
 function compareVersionsDesc(a, b) {
-  const parse = v => v.split('.').map(n => parseInt(n, 10));
-  const [aMajor, aMinor, aPatch] = parse(a);
-  const [bMajor, bMinor, bPatch] = parse(b);
+  const [aMajor, aMinor, aPatch] = parseVersion(a);
+  const [bMajor, bMinor, bPatch] = parseVersion(b);
 
   if (aMajor !== bMajor) return bMajor - aMajor;
   if (aMinor !== bMinor) return bMinor - aMinor;
   return bPatch - aPatch;
+}
+
+// Determine status between repo version and latest version
+function getStatus(repoVersion, latestVersion) {
+  const [rMajor, rMinor, rPatch] = parseVersion(repoVersion);
+  const [lMajor, lMinor, lPatch] = parseVersion(latestVersion);
+
+  if (repoVersion === latestVersion) {
+    return { text: '✅ Up-To-Date', className: 'uptodate' };
+  }
+  if (rMajor === lMajor) {
+    // Same major, so Slightly Outdated if minor/patch less
+    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
+  }
+  // Different major = Outdated
+  return { text: '❌ Outdated', className: 'outdated' };
 }
 
 async function run() {
@@ -90,15 +108,16 @@ async function run() {
   for (const repo of repos) {
     const version = await getPackageVersion(repo.name, repo.default_branch);
     if (version) {
+      const status = getStatus(version, latestVersion);
       results.push({
         name: repo.name,
         version,
-        upToDate: version === latestVersion
+        ...status
       });
     }
   }
 
-  // Sort by version descending (newest to oldest)
+  // Sort by version descending (newest first)
   results.sort((a, b) => compareVersionsDesc(a.version, b.version));
 
   // Build HTML output
@@ -106,15 +125,16 @@ async function run() {
   <!DOCTYPE html>
   <html lang="en">
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Prototype Kit Version Report</title>
     <style>
       body { font-family: sans-serif; padding: 2em; }
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
       th { background: #eee; }
-      .outdated { background: #fff3cd; }
-      .uptodate { background: #d4edda; }
+      .uptodate { background-color: #d4edda; }           /* green */
+      .slightly-outdated { background-color: #fff3cd; }  /* yellow */
+      .outdated { background-color: #f8d7da; }           /* red */
     </style>
   </head>
   <body>
@@ -130,10 +150,10 @@ async function run() {
       </thead>
       <tbody>
         ${results.map(r => `
-          <tr class="${r.upToDate ? 'uptodate' : 'outdated'}">
+          <tr class="${r.className}">
             <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
             <td>${r.version}</td>
-            <td>${r.upToDate ? '✅ Up to date' : '⚠️ Outdated'}</td>
+            <td>${r.text}</td>
           </tr>`).join('')}
       </tbody>
     </table>
