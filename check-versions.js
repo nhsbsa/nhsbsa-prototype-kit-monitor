@@ -22,13 +22,26 @@ async function getAllRepos() {
   while (true) {
     const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100&page=${page}`, {
       headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
         'User-Agent': 'version-check-script'
       }
     });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`GitHub API error (status ${res.status}): ${errorText}`);
+    }
+
     const data = await res.json();
-    if (data.length === 0) break;
+
+    if (!Array.isArray(data)) {
+      console.error('❌ Unexpected GitHub API response:', data);
+      throw new Error('Expected array of repos but got non-array');
+    }
+
     repos.push(...data);
+
+    if (data.length < 100) break; // Last page
     page++;
   }
 
