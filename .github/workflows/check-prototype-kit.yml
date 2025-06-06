@@ -2,46 +2,42 @@ name: Check Prototype Kit Versions
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Every day at midnight GMT
+    - cron: '0 0 * * *'  # Midnight GMT daily
   workflow_dispatch:
 
 jobs:
   check-versions:
     runs-on: ubuntu-latest
-    name: Check NHSUK Prototype Kit Versions
+    name: Check and Deploy Version Report
 
     steps:
-      # Checkout the repository (gh-pages branch)
-      - name: Checkout gh-pages branch
+      # Checkout the main branch
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          ref: gh-pages
+          ref: main
 
-      # Set up Node.js environment
+      # Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Install node-fetch v2 (required for compatibility with CommonJS-style scripts)
-      - name: Install dependencies
+      # Install required dependency
+      - name: Install node-fetch
         run: npm install node-fetch@2
 
-      # Run the version checking script
-      - name: Run check-versions.js
+      # Run the script
+      - name: Run version check script
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: node check-versions.js
 
-      # Commit and push changes if index.html was updated
-      - name: Commit and push index.html
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Update version report"
-            git push origin gh-pages
-          fi
+      # Deploy index.html to gh-pages branch
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .  # Because index.html is generated in the root
+          keep_files: false  # Wipe old files to avoid leftovers
