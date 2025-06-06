@@ -1,94 +1,397 @@
 
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>NHSUK Prototype Kit Versions</title>
-      <style>
-        body { font-family: Arial; padding: 2em; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #eee; }
-      </style>
-    </head>
-    <body>
-      <h1>NHSUK Prototype Kit Version Report</h1>
-      <p>Reference version: <strong>6.2.0</strong></p>
-      <table>
-        <tr><th>Repository</th><th>Version</th><th>Status</th></tr>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Prototype Kit Version Report</title>
+    <style>
+      body { font-family: sans-serif; padding: 2em; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+      th { background: #eee; }
+      .outdated { background: #fff3cd; }
+      .uptodate { background: #d4edda; }
+    </style>
+  </head>
+  <body>
+    <h1>NHSBSA Prototype Kit Version Report</h1>
+    <p>Latest version: <strong>6.2.0</strong></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Repository</th>
+          <th>Version</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
         
-    <tr>
-      <td><a href="https://github.com/nhsbsa/NHSBSA-prototype" target="_blank">NHSBSA-prototype</a></td>
-      <td>0.0.1</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/nhs-pension-prototype" target="_blank">nhs-pension-prototype</a></td>
-      <td>3.1.0</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/manage-healthy-start-vouchers" target="_blank">manage-healthy-start-vouchers</a></td>
-      <td>4.8.5</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/apply-healthy-start-vouchers" target="_blank">apply-healthy-start-vouchers</a></td>
-      <td>6.2.0</td>
-      <td>Up to date</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/ucd-manual" target="_blank">ucd-manual</a></td>
-      <td>3.0.6</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/nhsbsa-prototype-kit" target="_blank">nhsbsa-prototype-kit</a></td>
-      <td>4.8.0</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/netlify-prototype" target="_blank">netlify-prototype</a></td>
-      <td>3.0.10</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/nhs-c19-prototype" target="_blank">nhs-c19-prototype</a></td>
-      <td>3.0.10</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/hwhc-eligibility-checker" target="_blank">hwhc-eligibility-checker</a></td>
-      <td>4.11.0</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/nhsp-access-prototypes" target="_blank">nhsp-access-prototypes</a></td>
-      <td>3.1.0</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/cost-recovery-prototype" target="_blank">cost-recovery-prototype</a></td>
-      <td>4.8.6</td>
-      <td>Outdated</td>
-    </tr>
-  
-    <tr>
-      <td><a href="https://github.com/nhsbsa/med-examiners-nhs-prototype" target="_blank">med-examiners-nhs-prototype</a></td>
-      <td>3.1.0</td>
-      <td>Outdated</td>
-    </tr>
-  
-      </table>
-    </body>
-    </html>
-  
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/NHSBSA-prototype">NHSBSA-prototype</a></td>
+            <td>0.0.1</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhs-pension-prototype">nhs-pension-prototype</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/manage-healthy-start-vouchers">manage-healthy-start-vouchers</a></td>
+            <td>4.8.5</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="uptodate">
+            <td><a href="https://github.com/nhsbsa/apply-healthy-start-vouchers">apply-healthy-start-vouchers</a></td>
+            <td>6.2.0</td>
+            <td>✅ Up to date</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ucd-manual">ucd-manual</a></td>
+            <td>3.0.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhsbsa-prototype-kit">nhsbsa-prototype-kit</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/netlify-prototype">netlify-prototype</a></td>
+            <td>3.0.10</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhs-c19-prototype">nhs-c19-prototype</a></td>
+            <td>3.0.10</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/hwhc-eligibility-checker">hwhc-eligibility-checker</a></td>
+            <td>4.11.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhsp-access-prototypes">nhsp-access-prototypes</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/cost-recovery-prototype">cost-recovery-prototype</a></td>
+            <td>4.8.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/med-examiners-nhs-prototype">med-examiners-nhs-prototype</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/medical-examiners-prototype">medical-examiners-prototype</a></td>
+            <td>3.0.10</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/step-by-step-prototype">step-by-step-prototype</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/gp-survey">gp-survey</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/cost-recovery-ops">cost-recovery-ops</a></td>
+            <td>4.8.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/lis-training-materials">lis-training-materials</a></td>
+            <td>4.4.1</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhsbsa-frontend-history">nhsbsa-frontend-history</a></td>
+            <td>4.6.4</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhs-dpc-prototype">nhs-dpc-prototype</a></td>
+            <td>4.7.2</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ehic-prototype">ehic-prototype</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/mys-vdps">mys-vdps</a></td>
+            <td>4.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhsuk-matex">nhsuk-matex</a></td>
+            <td>5.3.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/section-twelve-prototype">section-twelve-prototype</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/replacement-certificate">replacement-certificate</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhsbsa-prototype-test">nhsbsa-prototype-test</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/HRT-PPC">HRT-PPC</a></td>
+            <td>5.3.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/mys-dispensing-docs">mys-dispensing-docs</a></td>
+            <td>4.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhs-student-bursaries-prototype">nhs-student-bursaries-prototype</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/self-manage-healthy-start-card">self-manage-healthy-start-card</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/css-frontend-history">css-frontend-history</a></td>
+            <td>4.6.4</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/contact-the-bsa">contact-the-bsa</a></td>
+            <td>6.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/hrt-telesales">hrt-telesales</a></td>
+            <td>5.3.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/hr-shared-services">hr-shared-services</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/mys-pharmacy">mys-pharmacy</a></td>
+            <td>4.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/code-club-example">code-club-example</a></td>
+            <td>4.8.3</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ppc-new">ppc-new</a></td>
+            <td>5.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/learning-support-fund">learning-support-fund</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/EIBSS-Prototype">EIBSS-Prototype</a></td>
+            <td>4.5.1</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/suvpart2">suvpart2</a></td>
+            <td>4.9.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/am-i-exempt">am-i-exempt</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/healthy-start-website">healthy-start-website</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/epact2">epact2</a></td>
+            <td>3.0.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/contact-the-bsa-old">contact-the-bsa-old</a></td>
+            <td>0.0.1</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ppc-telesales">ppc-telesales</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/issue-maternity-exemption">issue-maternity-exemption</a></td>
+            <td>3.0.1</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/external-reporting-user-onboarding-service">external-reporting-user-onboarding-service</a></td>
+            <td>4.8.3</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ehic-user-research">ehic-user-research</a></td>
+            <td>3.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/ohs-v2-prototype">ohs-v2-prototype</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/test-for-heroku">test-for-heroku</a></td>
+            <td>4.8.5</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/my-nhs-pension">my-nhs-pension</a></td>
+            <td>4.8.3</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/TECS-2022">TECS-2022</a></td>
+            <td>5.3.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/claims-prototype">claims-prototype</a></td>
+            <td>4.8.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/medical-examiner-service">medical-examiner-service</a></td>
+            <td>4.8.6</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/nhs-volunteering-beta-prototype">nhs-volunteering-beta-prototype</a></td>
+            <td>4.11.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/submit-request-to-NHS-recruitment-services">submit-request-to-NHS-recruitment-services</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/s1-online">s1-online</a></td>
+            <td>4.9.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/hfr-prototypes">hfr-prototypes</a></td>
+            <td>4.9.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/margin-survey">margin-survey</a></td>
+            <td>5.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/lis-apply-refresh">lis-apply-refresh</a></td>
+            <td>4.9.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/data-systems">data-systems</a></td>
+            <td>4.8.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/katie-test">katie-test</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/dentist-alpha-song-prototype">dentist-alpha-song-prototype</a></td>
+            <td>4.10.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/additional-pensions-calculator">additional-pensions-calculator</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/pensions-online-contact-form">pensions-online-contact-form</a></td>
+            <td>5.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/pensions-form-ordering">pensions-form-ordering</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/rina-mvp2">rina-mvp2</a></td>
+            <td>4.9.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/rina-mvp-2">rina-mvp-2</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="uptodate">
+            <td><a href="https://github.com/nhsbsa/data-hub">data-hub</a></td>
+            <td>6.2.0</td>
+            <td>✅ Up to date</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/session-timeout-cookie-component">session-timeout-cookie-component</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/match-ohs-record">match-ohs-record</a></td>
+            <td>4.12.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/exemption-checker">exemption-checker</a></td>
+            <td>5.1.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/self-assessment-test">self-assessment-test</a></td>
+            <td>5.0.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+          <tr class="outdated">
+            <td><a href="https://github.com/nhsbsa/mccloud-immediate-choice-prototype">mccloud-immediate-choice-prototype</a></td>
+            <td>5.3.0</td>
+            <td>⚠️ Outdated</td>
+          </tr>
+      </tbody>
+    </table>
+  </body>
+  </html>
