@@ -39,7 +39,8 @@ async function getAllRepos() {
       throw new Error('Expected array of repos but got non-array');
     }
 
-    repos.push(...data);
+    const activeRepos = data.filter(repo => !repo.archived);
+    repos.push(...activeRepos);
 
     if (data.length < 100) break; // Last page
     page++;
@@ -82,19 +83,16 @@ function compareVersionsDesc(a, b) {
   return bPatch - aPatch;
 }
 
-// Determine status between repo version and latest version
 function getStatus(repoVersion, latestVersion) {
-  const [rMajor, rMinor, rPatch] = parseVersion(repoVersion);
-  const [lMajor, lMinor, lPatch] = parseVersion(latestVersion);
+  const [rMajor, rMinor] = parseVersion(repoVersion);
+  const [lMajor, lMinor] = parseVersion(latestVersion);
 
   if (repoVersion === latestVersion) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
   if (rMajor === lMajor) {
-    // Same major, so Slightly Outdated if minor/patch less
     return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
   }
-  // Different major = Outdated
   return { text: '❌ Outdated', className: 'outdated' };
 }
 
@@ -117,10 +115,8 @@ async function run() {
     }
   }
 
-  // Sort by version descending (newest first)
   results.sort((a, b) => compareVersionsDesc(a.version, b.version));
 
-  // Build HTML output
   const html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -132,9 +128,9 @@ async function run() {
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
       th { background: #eee; }
-      .uptodate { background-color: #d4edda; }           /* green */
-      .slightly-outdated { background-color: #fff3cd; }  /* yellow */
-      .outdated { background-color: #f8d7da; }           /* red */
+      .uptodate { background-color: #d4edda; }
+      .slightly-outdated { background-color: #fff3cd; }
+      .outdated { background-color: #f8d7da; }
     </style>
   </head>
   <body>
