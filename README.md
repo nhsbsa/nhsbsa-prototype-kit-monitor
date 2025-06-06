@@ -32,4 +32,4 @@ The NHSBSA Prototype Checker repository provides tools and scripts to validate a
 
    ```bash
    git clone https://github.com/nhsbsa/nhsbsa-prototype-kit-monitor.git
-   cd nhsbsa-prototype-checker
+   cd nhsbsa-prototype-kit-monitor
