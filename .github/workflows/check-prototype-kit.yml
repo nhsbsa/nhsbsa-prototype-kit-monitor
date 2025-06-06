@@ -1,31 +1,47 @@
-name: Check NHSUK Prototype Kit Versions
+name: Check Prototype Kit Versions
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight GMT
-  workflow_dispatch:     # allow manual triggering
+    - cron: '0 0 * * *'  # Every day at midnight GMT
+  workflow_dispatch:
 
 jobs:
-  check_versions:
+  check-versions:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout this repo
-        uses: actions/checkout@v3
+    name: Check NHSUK Prototype Kit Versions
 
+    steps:
+      # Checkout the repository (gh-pages branch)
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      # Set up Node.js environment
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      # Install node-fetch v2 (required for compatibility with CommonJS-style scripts)
       - name: Install dependencies
-        run: npm install
+        run: npm install node-fetch@2
 
-      - name: Run version check script
+      # Run the version checking script
+      - name: Run check-versions.js
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: node check-versions.js
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./output
+      # Commit and push changes if index.html was updated
+      - name: Commit and push index.html
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update version report"
+            git push origin gh-pages
+          fi
