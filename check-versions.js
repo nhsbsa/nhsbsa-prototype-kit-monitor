@@ -69,6 +69,17 @@ async function getPackageVersion(repoName, defaultBranch = 'main') {
   }
 }
 
+// Compare semantic versions descending (newest first)
+function compareVersionsDesc(a, b) {
+  const parse = v => v.split('.').map(n => parseInt(n, 10));
+  const [aMajor, aMinor, aPatch] = parse(a);
+  const [bMajor, bMinor, bPatch] = parse(b);
+
+  if (aMajor !== bMajor) return bMajor - aMajor;
+  if (aMinor !== bMinor) return bMinor - aMinor;
+  return bPatch - aPatch;
+}
+
 async function run() {
   const latestVersion = await getLatestTemplateVersion();
   console.log(`Latest prototype kit version: ${latestVersion}\n`);
@@ -86,6 +97,9 @@ async function run() {
       });
     }
   }
+
+  // Sort by version descending (newest to oldest)
+  results.sort((a, b) => compareVersionsDesc(a.version, b.version));
 
   // Build HTML output
   const html = `
