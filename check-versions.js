@@ -1,104 +1,123 @@
 const fs = require('fs');
-const path = require('path');
 const fetch = require('node-fetch');
 
 const ORG = 'nhsbsa';
-const REFERENCE_REPO = 'nhsuk/nhsuk-prototype-kit';
-const OUTPUT_DIR = 'output';
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || ''; // use env if calling API
+const TEMPLATE_REPO = 'nhsuk-prototype-kit';
+const TEMPLATE_PKG_URL = `https://raw.githubusercontent.com/nhsuk/${TEMPLATE_REPO}/main/package.json`;
+const OUTPUT_HTML = 'index.html';
 
-const headers = {
-  Accept: 'application/vnd.github.v3+json',
-  ...(GITHUB_TOKEN && { Authorization: `token ${GITHUB_TOKEN}` }),
-};
+const GITHUB_TOKEN = process.env.GH_TOKEN;
 
-async function getRepos(org) {
-  const repos = [];
+async function getLatestTemplateVersion() {
+  const res = await fetch(TEMPLATE_PKG_URL);
+  if (!res.ok) throw new Error(`Failed to fetch template version: HTTP ${res.status}`);
+  const pkg = await res.json();
+  return pkg.version;
+}
+
+async function getAllRepos() {
   let page = 1;
+  const repos = [];
+
   while (true) {
-    const res = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100&page=${page}`, { headers });
+    const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100&page=${page}`, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        'User-Agent': 'version-check-script'
+      }
+    });
     const data = await res.json();
-    if (!data.length) break;
+    if (data.length === 0) break;
     repos.push(...data);
     page++;
   }
+
   return repos;
 }
 
-async function getPackageJson(owner, repo) {
-  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/package.json`, { headers });
-  if (res.status !== 200) return null;
-  const content = await res.json();
-  const buff = Buffer.from(content.content, 'base64');
-  return JSON.parse(buff.toString());
+async function getPackageVersion(repoName, defaultBranch = 'main') {
+  const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[${repoName}] No package.json (HTTP ${res.status})`);
+      return null;
+    }
+    const pkg = await res.json();
+    if (pkg.name !== 'nhsuk-prototype-kit') {
+      console.log(`[${repoName}] Skipped - name is '${pkg.name}'`);
+      return null;
+    }
+    console.log(`[${repoName}] Included - version: ${pkg.version}`);
+    return pkg.version;
+  } catch (err) {
+    console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
+    return null;
+  }
 }
 
-async function getReferenceVersion() {
-  const pkg = await getPackageJson('nhsuk', 'nhsuk-prototype-kit');
-  return pkg?.version || null;
-}
+async function run() {
+  const latestVersion = await getLatestTemplateVersion();
+  console.log(`Latest prototype kit version: ${latestVersion}\n`);
 
-function generateHTML(results, referenceVersion) {
-  const rows = results.map(r => `
-    <tr>
-      <td><a href="${r.url}" target="_blank">${r.name}</a></td>
-      <td>${r.version || '-'}</td>
-      <td>${r.status}</td>
-    </tr>
-  `).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>NHSUK Prototype Kit Versions</title>
-      <style>
-        body { font-family: Arial; padding: 2em; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #eee; }
-      </style>
-    </head>
-    <body>
-      <h1>NHSUK Prototype Kit Version Report</h1>
-      <p>Reference version: <strong>${referenceVersion}</strong></p>
-      <table>
-        <tr><th>Repository</th><th>Version</th><th>Status</th></tr>
-        ${rows}
-      </table>
-    </body>
-    </html>
-  `;
-}
-
-async function main() {
-  const repos = await getRepos(ORG);
-  const referenceVersion = await getReferenceVersion();
+  const repos = await getAllRepos();
   const results = [];
 
   for (const repo of repos) {
-    const pkg = await getPackageJson(ORG, repo.name);
-    if (!pkg || pkg.name !== 'nhsuk-prototype-kit') continue;
-
-    let status = 'Up to date';
-    if (pkg.version !== referenceVersion) {
-      status = 'Outdated';
+    const version = await getPackageVersion(repo.name, repo.default_branch);
+    if (version) {
+      results.push({
+        name: repo.name,
+        version,
+        upToDate: version === latestVersion
+      });
     }
-
-    results.push({
-      name: repo.name,
-      url: repo.html_url,
-      version: pkg.version,
-      status,
-    });
   }
 
-  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
-  const html = generateHTML(results, referenceVersion);
-  fs.writeFileSync(path.join(OUTPUT_DIR, 'index.html'), html);
+  // Build HTML output
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Prototype Kit Version Report</title>
+    <style>
+      body { font-family: sans-serif; padding: 2em; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+      th { background: #eee; }
+      .outdated { background: #fff3cd; }
+      .uptodate { background: #d4edda; }
+    </style>
+  </head>
+  <body>
+    <h1>NHSBSA Prototype Kit Version Report</h1>
+    <p>Latest version: <strong>${latestVersion}</strong></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Repository</th>
+          <th>Version</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${results.map(r => `
+          <tr class="${r.upToDate ? 'uptodate' : 'outdated'}">
+            <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
+            <td>${r.version}</td>
+            <td>${r.upToDate ? '✅ Up to date' : '⚠️ Outdated'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </body>
+  </html>`;
+
+  fs.writeFileSync(OUTPUT_HTML, html);
+  console.log(`\n✅ Report written to ${OUTPUT_HTML}`);
 }
 
-main().catch(err => {
-  console.error(err);
+run().catch(err => {
+  console.error('❌ Error:', err.message);
   process.exit(1);
 });
