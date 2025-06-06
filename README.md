@@ -31,5 +31,5 @@ The NHSBSA Prototype Checker repository provides tools and scripts to validate a
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-org/nhsbsa-prototype-checker.git
+   git clone https://github.com/nhsbsa/nhsbsa-prototype-kit-monitor.git
    cd nhsbsa-prototype-checker
