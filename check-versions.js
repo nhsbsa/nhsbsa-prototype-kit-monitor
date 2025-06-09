@@ -5,21 +5,14 @@ const ORG = 'nhsbsa';
 const OUTPUT_HTML = 'index.html';
 const GITHUB_TOKEN = process.env.GH_TOKEN;
 
+// URLs for latest package.json
 const NHS_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
 const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
 
 async function fetchLatestVersion(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
-  const raw = await res.text();
-  let pkg;
-  try {
-    pkg = JSON.parse(raw);
-  } catch (err) {
-    console.error(`[${repoName}] Invalid JSON in package.json: ${err.message}`);
-    console.error(`[${repoName}] Raw content: ${raw.slice(0, 200)}...`);
-    return null;
-  }
+  const pkg = await res.json();
   return pkg.version;
 }
 
@@ -70,11 +63,8 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
       console.log(`[${repoName}] Skipped - invalid package.json`);
       return null;
     }
-    return {
-      name: pkg.name,
-      version: pkg.version,
-      dependencies: pkg.dependencies || {}
-    };
+    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
+    return { name: pkg.name, version: pkg.version };
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
     return null;
@@ -82,7 +72,7 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
 }
 
 function parseVersion(v) {
-  return v.replace(/[^0-9.]/g, '').split('.').map(n => parseInt(n, 10) || 0);
+  return v.split('.').map(n => parseInt(n, 10));
 }
 
 function compareVersionsDesc(a, b) {
@@ -150,29 +140,18 @@ async function run() {
     const pkg = await getPackageDetails(repo.name, repo.default_branch);
     if (!pkg) continue;
 
-    const { name, version, dependencies } = pkg;
-
-    if (name === 'nhsuk-prototype-kit') {
-      const status = getStatus(version, nhsLatest);
+    if (pkg.name === 'nhsuk-prototype-kit') {
+      const status = getStatus(pkg.version, nhsLatest);
       nhsResults.push({
         name: repo.name,
-        version,
+        version: pkg.version,
         ...status
       });
-    } else if (name === 'govuk-prototype-kit') {
-      const status = getStatus(version, govLatest);
+    } else if (pkg.name === 'govuk-prototype-kit') {
+      const status = getStatus(pkg.version, govLatest);
       govResults.push({
         name: repo.name,
-        version,
-        ...status
-      });
-    } else if (dependencies['govuk-prototype-kit']) {
-      const depVersion = dependencies['govuk-prototype-kit'];
-      const cleanVersion = depVersion.replace(/^[^\d]*/, ''); // Strip ^, ~ etc.
-      const status = getStatus(cleanVersion, govLatest);
-      govResults.push({
-        name: repo.name,
-        version: cleanVersion,
+        version: pkg.version,
         ...status
       });
     }
