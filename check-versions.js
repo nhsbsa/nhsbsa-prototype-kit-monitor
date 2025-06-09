@@ -50,8 +50,10 @@ async function getAllRepos() {
   return repos;
 }
 
-async function getPackageDetails(repoName, defaultBranch = 'main') {
-  const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
+async function getPackageDetails(repoName, branch = 'main') {
+  const cleanBranch = branch.replace(/^refs\/heads\//, '');
+  const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${cleanBranch}/package.json`;
+
   try {
     const res = await fetch(url);
     if (!res.ok) {
@@ -64,7 +66,6 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
       return null;
     }
     console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
-    // Return govuk-prototype-kit property value if present
     return {
       name: pkg.name,
       version: pkg.version,
@@ -142,7 +143,8 @@ async function run() {
   const govResults = [];
 
   for (const repo of repos) {
-    const pkg = await getPackageDetails(repo.name, repo.default_branch);
+    const branch = (repo.default_branch || 'main').replace(/^refs\/heads\//, '');
+    const pkg = await getPackageDetails(repo.name, branch);
     if (!pkg) continue;
 
     if (pkg.name === 'nhsuk-prototype-kit') {
