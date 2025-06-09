@@ -1,24 +1,46 @@
+
 const fs = require('fs');
 const fetch = require('node-fetch');
 
 const ORG = 'nhsbsa';
+const NHS_TEMPLATE_REPO = 'nhsuk-prototype-kit';
+const GOV_TEMPLATE_REPO = 'govuk-prototype-kit';
+
+const NHS_TEMPLATE_PKG_URL = `https://raw.githubusercontent.com/nhsbsa/${NHS_TEMPLATE_REPO}/main/package.json`;
+const GOV_TEMPLATE_PKG_URL = `https://raw.githubusercontent.com/alphagov/${GOV_TEMPLATE_REPO}/main/package.json`;
+
 const OUTPUT_HTML = 'index.html';
+
 const GITHUB_TOKEN = process.env.GH_TOKEN;
 
-const NHS_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
-const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
+function parseVersion(version) {
+  // Parses a version string into [major, minor, patch]
+  const [major, minor, patch] = version.split('.').map(n => parseInt(n, 10));
+  return [major || 0, minor || 0, patch || 0];
+}
 
-async function fetchLatestVersion(url) {
+function compareVersions(current, latest) {
+  // Returns:
+  // 0 if equal
+  // 1 if slightly outdated (patch-level difference)
+  // 2 if outdated (major or minor difference)
+  const [cMaj, cMin, cPatch] = parseVersion(current);
+  const [lMaj, lMin, lPatch] = parseVersion(latest);
+
+  if (cMaj === lMaj && cMin === lMin && cPatch === lPatch) return 0;
+  if (cMaj === lMaj && cMin === lMin && cPatch < lPatch) return 1;
+  return 2;
+}
+
+async function getLatestTemplateVersion(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to fetch template version: HTTP ${res.status}`);
   const raw = await res.text();
   let pkg;
   try {
     pkg = JSON.parse(raw);
   } catch (err) {
-    console.error(`[${repoName}] Invalid JSON in package.json: ${err.message}`);
-    console.error(`[${repoName}] Raw content: ${raw.slice(0, 200)}...`);
-    return null;
+    throw new Error(`Invalid JSON in template package.json: ${err.message}`);
   }
   return pkg.version;
 }
@@ -47,17 +69,16 @@ async function getAllRepos() {
       throw new Error('Expected array of repos but got non-array');
     }
 
-    const activeRepos = data.filter(repo => !repo.archived);
-    repos.push(...activeRepos);
+    repos.push(...data);
 
-    if (data.length < 100) break;
+    if (data.length < 100) break; // Last page
     page++;
   }
 
-  return repos;
+  return repos.filter(repo => !repo.archived);
 }
 
-async function getPackageDetails(repoName, defaultBranch = 'main') {
+async function getPackageVersion(repoName, defaultBranch = 'main') {
   const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
   try {
     const res = await fetch(url);
@@ -65,155 +86,176 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
       console.warn(`[${repoName}] No package.json (HTTP ${res.status})`);
       return null;
     }
-    const pkg = await res.json();
-    if (!pkg.name || !pkg.version) {
-      console.log(`[${repoName}] Skipped - invalid package.json`);
+    const raw = await res.text();
+    let pkg;
+    try {
+      pkg = JSON.parse(raw);
+    } catch (err) {
+      console.error(`[${repoName}] Invalid JSON in package.json: ${err.message}`);
       return null;
     }
-    return {
-      name: pkg.name,
-      version: pkg.version,
-      dependencies: pkg.dependencies || {}
-    };
+
+    const { name, version, dependencies } = pkg || {};
+    if (!name && !dependencies) {
+      console.log(`[${repoName}] Skipped - no name or dependencies found`);
+      return null;
+    }
+
+    // NHS Prototype Kit checks
+    if (name === NHS_TEMPLATE_REPO) {
+      console.log(`[${repoName}] Included - NHS Prototype Kit version: ${version}`);
+      return { repo: repoName, kit: 'nhs', version };
+    } else if (dependencies && dependencies[NHS_TEMPLATE_REPO]) {
+      const depVersion = dependencies[NHS_TEMPLATE_REPO].replace(/^[^\d]*/, '');
+      console.log(`[${repoName}] Included - NHS Prototype Kit dependency version: ${depVersion}`);
+      return { repo: repoName, kit: 'nhs', version: depVersion };
+    }
+
+    // GOV Prototype Kit checks
+    if (name === GOV_TEMPLATE_REPO) {
+      console.log(`[${repoName}] Included - GOV Prototype Kit version: ${version}`);
+      return { repo: repoName, kit: 'gov', version };
+    } else if (dependencies && dependencies[GOV_TEMPLATE_REPO]) {
+      const depVersion = dependencies[GOV_TEMPLATE_REPO].replace(/^[^\d]*/, '');
+      console.log(`[${repoName}] Included - GOV Prototype Kit dependency version: ${depVersion}`);
+      return { repo: repoName, kit: 'gov', version: depVersion };
+    }
+
+    console.log(`[${repoName}] Skipped - no matching prototype kit found`);
+    return null;
+
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
     return null;
   }
 }
 
-function parseVersion(v) {
-  return v.replace(/[^0-9.]/g, '').split('.').map(n => parseInt(n, 10) || 0);
-}
-
-function compareVersionsDesc(a, b) {
-  const [aMajor, aMinor, aPatch] = parseVersion(a);
-  const [bMajor, bMinor, bPatch] = parseVersion(b);
-
-  if (aMajor !== bMajor) return bMajor - aMajor;
-  if (aMinor !== bMinor) return bMinor - aMinor;
-  return bPatch - aPatch;
-}
-
-function getStatus(repoVersion, latestVersion) {
-  const [rMajor, rMinor] = parseVersion(repoVersion);
-  const [lMajor, lMinor] = parseVersion(latestVersion);
-
-  if (repoVersion === latestVersion) {
-    return { text: '✅ Up-To-Date', className: 'uptodate' };
-  }
-  if (rMajor === lMajor) {
-    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
-  }
-  return { text: '❌ Outdated', className: 'outdated' };
-}
-
-function generateTable(title, results, latestVersion) {
-  if (results.length === 0) return '';
-
-  return `
-    <h2>${title}</h2>
-    <p>Latest version: <strong>${latestVersion}</strong></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Repository</th>
-          <th>Version</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${results.map(r => `
-          <tr class="${r.className}">
-            <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
-            <td>${r.version}</td>
-            <td>${r.text}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>
-  `;
+function formatDate(date) {
+  // Format date like "9th January 2025"
+  const day = date.getDate();
+  const suffix = day % 10 === 1 && day !== 11 ? 'st' :
+                 day % 10 === 2 && day !== 12 ? 'nd' :
+                 day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+  const monthNames = ["January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"];
+  return `${day}${suffix} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 async function run() {
-  const [nhsLatest, govLatest] = await Promise.all([
-    fetchLatestVersion(NHS_TEMPLATE_PKG_URL),
-    fetchLatestVersion(GOV_TEMPLATE_PKG_URL)
-  ]);
+  const latestNHSVersion = await getLatestTemplateVersion(NHS_TEMPLATE_PKG_URL);
+  const latestGOVVersion = await getLatestTemplateVersion(GOV_TEMPLATE_PKG_URL);
 
-  console.log(`Latest NHS version: ${nhsLatest}`);
-  console.log(`Latest GOV.UK version: ${govLatest}`);
+  console.log(`Latest NHS Prototype Kit version: ${latestNHSVersion}`);
+  console.log(`Latest GOV Prototype Kit version: ${latestGOVVersion}
+`);
 
   const repos = await getAllRepos();
+
   const nhsResults = [];
   const govResults = [];
 
   for (const repo of repos) {
-    const pkg = await getPackageDetails(repo.name, repo.default_branch);
-    if (!pkg) continue;
-
-    const { name, version, dependencies } = pkg;
-
-    if (name === 'nhsuk-prototype-kit') {
-      const status = getStatus(version, nhsLatest);
-      nhsResults.push({
-        name: repo.name,
-        version,
-        ...status
+    const pkgInfo = await getPackageVersion(repo.name, repo.default_branch);
+    if (pkgInfo) {
+      const latest = pkgInfo.kit === 'nhs' ? latestNHSVersion : latestGOVVersion;
+      const statusNum = compareVersions(pkgInfo.version, latest);
+      const statusText = statusNum === 0 ? '✅ Up-To-Date' :
+                         statusNum === 1 ? '⚠️ Slightly Outdated' : '❌ Outdated';
+      nhsResults.push && pkgInfo.kit === 'nhs' && nhsResults.push({
+        name: pkgInfo.repo,
+        version: pkgInfo.version,
+        statusNum,
+        statusText,
       });
-    } else if (name === 'govuk-prototype-kit') {
-      const status = getStatus(version, govLatest);
-      govResults.push({
-        name: repo.name,
-        version,
-        ...status
-      });
-    } else if (dependencies['govuk-prototype-kit']) {
-      const depVersion = dependencies['govuk-prototype-kit'];
-      const cleanVersion = depVersion.replace(/^[^\d]*/, ''); // Strip ^, ~ etc.
-      const status = getStatus(cleanVersion, govLatest);
-      govResults.push({
-        name: repo.name,
-        version: cleanVersion,
-        ...status
+      govResults.push && pkgInfo.kit === 'gov' && govResults.push({
+        name: pkgInfo.repo,
+        version: pkgInfo.version,
+        statusNum,
+        statusText,
       });
     }
   }
 
-  nhsResults.sort((a, b) => compareVersionsDesc(a.version, b.version));
-  govResults.sort((a, b) => compareVersionsDesc(a.version, b.version));
-
-  const lastUpdated = new Date().toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+  // Sort each table by newest version first
+  nhsResults.sort((a, b) => {
+    if (a.statusNum !== b.statusNum) return a.statusNum - b.statusNum;
+    // fallback to version descending
+    return compareVersions(b.version, a.version);
+  });
+  govResults.sort((a, b) => {
+    if (a.statusNum !== b.statusNum) return a.statusNum - b.statusNum;
+    return compareVersions(b.version, a.version);
   });
 
+  function rowClass(statusNum) {
+    return statusNum === 0 ? 'uptodate' :
+           statusNum === 1 ? 'slightly' :
+           'outdated';
+  }
+
+  const lastUpdated = formatDate(new Date());
+
   const html = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Prototype Kit Version Report</title>
-    <style>
-      body { font-family: sans-serif; padding: 2em; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
-      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
-      th { background: #eee; }
-      .uptodate { background-color: #d4edda; }
-      .slightly-outdated { background-color: #fff3cd; }
-      .outdated { background-color: #f8d7da; }
-      .last-updated { margin-top: 1em; font-style: italic; color: #555; }
-    </style>
-  </head>
-  <body>
-    <h1>NHSBSA Prototype Kit Version Report</h1>
-    ${generateTable('NHS Prototype Kit', nhsResults, nhsLatest)}
-    ${generateTable('GOV.UK Prototype Kit', govResults, govLatest)}
-    <p class="last-updated">Last Updated: ${lastUpdated}</p>
-  </body>
-  </html>`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Prototype Kit Version Report</title>
+<style>
+  body { font-family: sans-serif; padding: 2em; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+  th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+  th { background: #eee; }
+  .uptodate { background: #d4edda; }
+  .slightly { background: #fff3cd; }
+  .outdated { background: #f8d7da; }
+  h2 { margin-top: 2em; }
+  .last-updated { font-style: italic; margin-top: 1em; }
+</style>
+</head>
+<body>
+  <h1>NHSBSA Prototype Kit Version Report</h1>
+
+  <h2>NHS Prototype Kit</h2>
+  <p>Latest version: <strong>${latestNHSVersion}</strong></p>
+  <table>
+    <thead>
+      <tr><th>Repository</th><th>Version</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      ${nhsResults.map(r => `
+      <tr class="${rowClass(r.statusNum)}">
+        <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
+        <td>${r.version}</td>
+        <td>${r.statusText}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <h2>GOV Prototype Kit</h2>
+  <p>Latest version: <strong>${latestGOVVersion}</strong></p>
+  <table>
+    <thead>
+      <tr><th>Repository</th><th>Version</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      ${govResults.map(r => `
+      <tr class="${rowClass(r.statusNum)}">
+        <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
+        <td>${r.version}</td>
+        <td>${r.statusText}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <p class="last-updated">Last Updated: ${lastUpdated}</p>
+</body>
+</html>
+`;
 
   fs.writeFileSync(OUTPUT_HTML, html);
-  console.log(`\n✅ Report written to ${OUTPUT_HTML}`);
+  console.log(`
+✅ Report written to ${OUTPUT_HTML}`);
 }
 
 run().catch(err => {
