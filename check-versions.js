@@ -5,7 +5,6 @@ const ORG = 'nhsbsa';
 const OUTPUT_HTML = 'index.html';
 const GITHUB_TOKEN = process.env.GH_TOKEN;
 
-// URLs for latest package.json
 const NHS_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
 const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
 
@@ -62,10 +61,6 @@ async function getPackageDetails(repoName, branch = 'main') {
     }
 
     const pkg = await res.json();
-    if (!pkg.name || !pkg.version) {
-      console.log(`[${repoName}] Skipped - invalid package.json`);
-      return null;
-    }
 
     const govukPrototypeKitVersion =
       pkg['govuk-prototype-kit'] ||
@@ -73,11 +68,23 @@ async function getPackageDetails(repoName, branch = 'main') {
       (pkg.devDependencies && pkg.devDependencies['govuk-prototype-kit']) ||
       null;
 
-    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}` + (govukPrototypeKitVersion ? ` (govuk-prototype-kit: ${govukPrototypeKitVersion})` : ''));
+    const isGovukOnly = Boolean(govukPrototypeKitVersion);
+    const isValid = pkg.name && pkg.version;
+
+    if (!isValid && !isGovukOnly) {
+      console.log(`[${repoName}] Skipped - invalid package.json`);
+      return null;
+    }
+
+    console.log(`[${repoName}] Detected` +
+      (pkg.name ? ` - ${pkg.name}` : '') +
+      (pkg.version ? ` v${pkg.version}` : '') +
+      (govukPrototypeKitVersion ? ` (govuk-prototype-kit: ${govukPrototypeKitVersion})` : '')
+    );
 
     return {
-      name: pkg.name,
-      version: pkg.version,
+      name: pkg.name || repoName,
+      version: pkg.version || govukPrototypeKitVersion,
       govukPrototypeKitVersion
     };
   } catch (err) {
@@ -87,7 +94,7 @@ async function getPackageDetails(repoName, branch = 'main') {
 }
 
 function parseVersion(v) {
-  return v.replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
+  return v.split('.').map(n => parseInt(n, 10));
 }
 
 function compareVersionsDesc(a, b) {
@@ -152,8 +159,7 @@ async function run() {
   const govResults = [];
 
   for (const repo of repos) {
-    const branch = (repo.default_branch || 'main').replace(/^refs\/heads\//, '');
-    const pkg = await getPackageDetails(repo.name, branch);
+    const pkg = await getPackageDetails(repo.name, repo.default_branch);
     if (!pkg) continue;
 
     if (pkg.name === 'nhsuk-prototype-kit') {
@@ -163,12 +169,15 @@ async function run() {
         version: pkg.version,
         ...status
       });
-    } else if (pkg.name === 'govuk-prototype-kit' || pkg.govukPrototypeKitVersion) {
-      const versionToCheck = pkg.govukPrototypeKitVersion || pkg.version;
-      const status = getStatus(versionToCheck, govLatest);
+    } else if (
+      pkg.name === 'govuk-prototype-kit' ||
+      pkg.govukPrototypeKitVersion
+    ) {
+      const versionToUse = pkg.govukPrototypeKitVersion || pkg.version;
+      const status = getStatus(versionToUse, govLatest);
       govResults.push({
         name: repo.name,
-        version: versionToCheck,
+        version: versionToUse,
         ...status
       });
     }
