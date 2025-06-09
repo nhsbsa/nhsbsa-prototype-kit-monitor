@@ -22,7 +22,7 @@ The NHSBSA Prototype Checker repository provides tools and scripts to validate a
 
 - Automatically fetches the latest NHS Prototype Kit version
 - Checks all NHSBSA prototypes for compatibility issues
-- Provides reports on errors and warnings at https://nhsbsa.github.io/nhsbsa-prototype-kit-monitor/
+- GitHub action runs each day at midnight and provides reports on errors and warnings at https://nhsbsa.github.io/nhsbsa-prototype-kit-monitor/
 
 ---
 
