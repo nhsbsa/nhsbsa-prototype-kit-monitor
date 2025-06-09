@@ -117,6 +117,12 @@ async function run() {
 
   results.sort((a, b) => compareVersionsDesc(a.version, b.version));
 
+  const lastUpdated = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
   const html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -131,11 +137,12 @@ async function run() {
       .uptodate { background-color: #d4edda; }
       .slightly-outdated { background-color: #fff3cd; }
       .outdated { background-color: #f8d7da; }
+      .last-updated { margin-top: 1em; font-style: italic; color: #555; }
     </style>
   </head>
   <body>
     <h1>NHSBSA Prototype Kit Version Report</h1>
-    <p>Latest version: <strong>${latestVersion}</strong></p>
+    <p>Current NHS Prototype Kit version: <strong>${latestVersion}</strong></p>
     <table>
       <thead>
         <tr>
@@ -153,6 +160,7 @@ async function run() {
           </tr>`).join('')}
       </tbody>
     </table>
+    <p class="last-updated">Last Updated: ${lastUpdated}</p>
   </body>
   </html>`;
 
