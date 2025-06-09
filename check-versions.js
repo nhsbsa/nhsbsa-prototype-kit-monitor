@@ -64,7 +64,12 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
       return null;
     }
     console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
-    return { name: pkg.name, version: pkg.version };
+    // Return govuk-prototype-kit property value if present
+    return {
+      name: pkg.name,
+      version: pkg.version,
+      govukPrototypeKitVersion: pkg['govuk-prototype-kit'] || null
+    };
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
     return null;
@@ -147,11 +152,12 @@ async function run() {
         version: pkg.version,
         ...status
       });
-    } else if (pkg.name === 'govuk-prototype-kit') {
-      const status = getStatus(pkg.version, govLatest);
+    } else if (pkg.name === 'govuk-prototype-kit' || pkg.govukPrototypeKitVersion) {
+      const versionToCheck = pkg.govukPrototypeKitVersion || pkg.version;
+      const status = getStatus(versionToCheck, govLatest);
       govResults.push({
         name: repo.name,
-        version: pkg.version,
+        version: versionToCheck,
         ...status
       });
     }
