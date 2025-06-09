@@ -11,7 +11,15 @@ const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-p
 async function fetchLatestVersion(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
-  const pkg = await res.json();
+  const raw = await res.text();
+  let pkg;
+  try {
+    pkg = JSON.parse(raw);
+  } catch (err) {
+    console.error(`[${repoName}] Invalid JSON in package.json: ${err.message}`);
+    console.error(`[${repoName}] Raw content: ${raw.slice(0, 200)}...`);
+    return null;
+  }
   return pkg.version;
 }
 
