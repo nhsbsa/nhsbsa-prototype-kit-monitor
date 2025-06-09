@@ -2,15 +2,16 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 
 const ORG = 'nhsbsa';
-const TEMPLATE_REPO = 'nhsuk-prototype-kit';
-const TEMPLATE_PKG_URL = `https://raw.githubusercontent.com/nhsuk/${TEMPLATE_REPO}/main/package.json`;
 const OUTPUT_HTML = 'index.html';
-
 const GITHUB_TOKEN = process.env.GH_TOKEN;
 
-async function getLatestTemplateVersion() {
-  const res = await fetch(TEMPLATE_PKG_URL);
-  if (!res.ok) throw new Error(`Failed to fetch template version: HTTP ${res.status}`);
+// URLs for latest package.json
+const NHS_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
+const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
+
+async function fetchLatestVersion(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
   const pkg = await res.json();
   return pkg.version;
 }
@@ -42,14 +43,14 @@ async function getAllRepos() {
     const activeRepos = data.filter(repo => !repo.archived);
     repos.push(...activeRepos);
 
-    if (data.length < 100) break; // Last page
+    if (data.length < 100) break;
     page++;
   }
 
   return repos;
 }
 
-async function getPackageVersion(repoName, defaultBranch = 'main') {
+async function getPackageDetails(repoName, defaultBranch = 'main') {
   const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
   try {
     const res = await fetch(url);
@@ -58,12 +59,12 @@ async function getPackageVersion(repoName, defaultBranch = 'main') {
       return null;
     }
     const pkg = await res.json();
-    if (pkg.name !== 'nhsuk-prototype-kit') {
-      console.log(`[${repoName}] Skipped - name is '${pkg.name}'`);
+    if (!pkg.name || !pkg.version) {
+      console.log(`[${repoName}] Skipped - invalid package.json`);
       return null;
     }
-    console.log(`[${repoName}] Included - version: ${pkg.version}`);
-    return pkg.version;
+    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
+    return { name: pkg.name, version: pkg.version };
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
     return null;
@@ -96,53 +97,12 @@ function getStatus(repoVersion, latestVersion) {
   return { text: '❌ Outdated', className: 'outdated' };
 }
 
-async function run() {
-  const latestVersion = await getLatestTemplateVersion();
-  console.log(`Latest prototype kit version: ${latestVersion}\n`);
+function generateTable(title, results, latestVersion) {
+  if (results.length === 0) return '';
 
-  const repos = await getAllRepos();
-  const results = [];
-
-  for (const repo of repos) {
-    const version = await getPackageVersion(repo.name, repo.default_branch);
-    if (version) {
-      const status = getStatus(version, latestVersion);
-      results.push({
-        name: repo.name,
-        version,
-        ...status
-      });
-    }
-  }
-
-  results.sort((a, b) => compareVersionsDesc(a.version, b.version));
-
-  const lastUpdated = new Date().toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-
-  const html = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Prototype Kit Version Report</title>
-    <style>
-      body { font-family: sans-serif; padding: 2em; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
-      th { background: #eee; }
-      .uptodate { background-color: #d4edda; }
-      .slightly-outdated { background-color: #fff3cd; }
-      .outdated { background-color: #f8d7da; }
-      .last-updated { margin-top: 1em; font-style: italic; color: #555; }
-    </style>
-  </head>
-  <body>
-    <h1>NHSBSA Prototype Kit Version Report</h1>
-    <p>Current NHS Prototype Kit version: <strong>${latestVersion}</strong></p>
+  return `
+    <h2>${title}</h2>
+    <p>Latest version: <strong>${latestVersion}</strong></p>
     <table>
       <thead>
         <tr>
@@ -160,6 +120,73 @@ async function run() {
           </tr>`).join('')}
       </tbody>
     </table>
+  `;
+}
+
+async function run() {
+  const [nhsLatest, govLatest] = await Promise.all([
+    fetchLatestVersion(NHS_TEMPLATE_PKG_URL),
+    fetchLatestVersion(GOV_TEMPLATE_PKG_URL)
+  ]);
+
+  console.log(`Latest NHS version: ${nhsLatest}`);
+  console.log(`Latest GOV.UK version: ${govLatest}`);
+
+  const repos = await getAllRepos();
+  const nhsResults = [];
+  const govResults = [];
+
+  for (const repo of repos) {
+    const pkg = await getPackageDetails(repo.name, repo.default_branch);
+    if (!pkg) continue;
+
+    if (pkg.name === 'nhsuk-prototype-kit') {
+      const status = getStatus(pkg.version, nhsLatest);
+      nhsResults.push({
+        name: repo.name,
+        version: pkg.version,
+        ...status
+      });
+    } else if (pkg.name === 'govuk-prototype-kit') {
+      const status = getStatus(pkg.version, govLatest);
+      govResults.push({
+        name: repo.name,
+        version: pkg.version,
+        ...status
+      });
+    }
+  }
+
+  nhsResults.sort((a, b) => compareVersionsDesc(a.version, b.version));
+  govResults.sort((a, b) => compareVersionsDesc(a.version, b.version));
+
+  const lastUpdated = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Prototype Kit Version Report</title>
+    <style>
+      body { font-family: sans-serif; padding: 2em; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+      th { background: #eee; }
+      .uptodate { background-color: #d4edda; }
+      .slightly-outdated { background-color: #fff3cd; }
+      .outdated { background-color: #f8d7da; }
+      .last-updated { margin-top: 1em; font-style: italic; color: #555; }
+    </style>
+  </head>
+  <body>
+    <h1>NHSBSA Prototype Kit Version Report</h1>
+    ${generateTable('NHS Prototype Kit', nhsResults, nhsLatest)}
+    ${generateTable('GOV.UK Prototype Kit', govResults, govLatest)}
     <p class="last-updated">Last Updated: ${lastUpdated}</p>
   </body>
   </html>`;
