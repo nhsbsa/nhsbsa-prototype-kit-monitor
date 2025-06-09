@@ -60,16 +60,25 @@ async function getPackageDetails(repoName, branch = 'main') {
       console.warn(`[${repoName}] No package.json (HTTP ${res.status})`);
       return null;
     }
+
     const pkg = await res.json();
     if (!pkg.name || !pkg.version) {
       console.log(`[${repoName}] Skipped - invalid package.json`);
       return null;
     }
-    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
+
+    const govukPrototypeKitVersion =
+      pkg['govuk-prototype-kit'] ||
+      (pkg.dependencies && pkg.dependencies['govuk-prototype-kit']) ||
+      (pkg.devDependencies && pkg.devDependencies['govuk-prototype-kit']) ||
+      null;
+
+    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}` + (govukPrototypeKitVersion ? ` (govuk-prototype-kit: ${govukPrototypeKitVersion})` : ''));
+
     return {
       name: pkg.name,
       version: pkg.version,
-      govukPrototypeKitVersion: pkg['govuk-prototype-kit'] || null
+      govukPrototypeKitVersion
     };
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
@@ -78,7 +87,7 @@ async function getPackageDetails(repoName, branch = 'main') {
 }
 
 function parseVersion(v) {
-  return v.split('.').map(n => parseInt(n, 10));
+  return v.replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
 }
 
 function compareVersionsDesc(a, b) {
