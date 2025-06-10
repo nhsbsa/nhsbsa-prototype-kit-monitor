@@ -1,5 +1,6 @@
 const fs = require('fs');
 const fetch = require('node-fetch');
+const semver = require('semver');
 
 const ORG = 'nhsbsa';
 const OUTPUT_HTML = 'index.html';
@@ -49,74 +50,56 @@ async function getAllRepos() {
   return repos;
 }
 
-async function getPackageDetails(repoName, branch = 'main') {
-  const cleanBranch = branch.replace(/^refs\/heads\//, '');
-  const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${cleanBranch}/package.json`;
-
+async function getPackageDetails(repoName, defaultBranch = 'main') {
+  const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
   try {
     const res = await fetch(url);
     if (!res.ok) {
       console.warn(`[${repoName}] No package.json (HTTP ${res.status})`);
       return null;
     }
-
     const pkg = await res.json();
+    const name = pkg.name;
+    const version = pkg.version || null;
+    const dependencies = pkg.dependencies || {};
 
-    const govukPrototypeKitVersion =
-      pkg['govuk-prototype-kit'] ||
-      (pkg.dependencies && pkg.dependencies['govuk-prototype-kit']) ||
-      (pkg.devDependencies && pkg.devDependencies['govuk-prototype-kit']) ||
-      null;
-
-    const isGovukOnly = Boolean(govukPrototypeKitVersion);
-    const isValid = pkg.name && pkg.version;
-
-    if (!isValid && !isGovukOnly) {
+    if (!name && !dependencies['govuk-prototype-kit']) {
       console.log(`[${repoName}] Skipped - invalid package.json`);
       return null;
     }
 
-    console.log(`[${repoName}] Detected` +
-      (pkg.name ? ` - ${pkg.name}` : '') +
-      (pkg.version ? ` v${pkg.version}` : '') +
-      (govukPrototypeKitVersion ? ` (govuk-prototype-kit: ${govukPrototypeKitVersion})` : '')
-    );
+    if (name === 'govuk-prototype-kit') {
+      return { name, version };
+    } else if (dependencies['govuk-prototype-kit']) {
+      return { name: 'govuk-prototype-kit', version: dependencies['govuk-prototype-kit'] };
+    } else if (name === 'nhsuk-prototype-kit') {
+      return { name, version };
+    }
 
-    return {
-      name: pkg.name || repoName,
-      version: pkg.version || govukPrototypeKitVersion,
-      govukPrototypeKitVersion
-    };
+    return null;
   } catch (err) {
     console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
     return null;
   }
 }
 
-function parseVersion(v) {
-  return v.split('.').map(n => parseInt(n, 10));
-}
-
 function compareVersionsDesc(a, b) {
-  const [aMajor, aMinor, aPatch] = parseVersion(a);
-  const [bMajor, bMinor, bPatch] = parseVersion(b);
-
-  if (aMajor !== bMajor) return bMajor - aMajor;
-  if (aMinor !== bMinor) return bMinor - aMinor;
-  return bPatch - aPatch;
+  return semver.rcompare(semver.coerce(a), semver.coerce(b));
 }
 
 function getStatus(repoVersion, latestVersion) {
-  const [rMajor, rMinor] = parseVersion(repoVersion);
-  const [lMajor, lMinor] = parseVersion(latestVersion);
+  const repoMin = semver.minVersion(repoVersion);
+  if (!repoMin) return { text: '❌ Invalid Version', className: 'outdated' };
 
-  if (repoVersion === latestVersion) {
+  if (semver.satisfies(latestVersion, repoVersion)) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
-  if (rMajor === lMajor) {
-    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
-  }
-  return { text: '❌ Outdated', className: 'outdated' };
+
+  const sameMajor = semver.major(repoMin) === semver.major(latestVersion);
+  return {
+    text: sameMajor ? '⚠️ Slightly Outdated' : '❌ Outdated',
+    className: sameMajor ? 'slightly-outdated' : 'outdated'
+  };
 }
 
 function generateTable(title, results, latestVersion) {
@@ -169,15 +152,11 @@ async function run() {
         version: pkg.version,
         ...status
       });
-    } else if (
-      pkg.name === 'govuk-prototype-kit' ||
-      pkg.govukPrototypeKitVersion
-    ) {
-      const versionToUse = pkg.govukPrototypeKitVersion || pkg.version;
-      const status = getStatus(versionToUse, govLatest);
+    } else if (pkg.name === 'govuk-prototype-kit') {
+      const status = getStatus(pkg.version, govLatest);
       govResults.push({
         name: repo.name,
-        version: versionToUse,
+        version: pkg.version,
         ...status
       });
     }
