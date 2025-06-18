@@ -34,7 +34,6 @@ async function getAllRepos() {
     }
 
     const data = await res.json();
-
     if (!Array.isArray(data)) {
       console.error('❌ Unexpected GitHub API response:', data);
       throw new Error('Expected array of repos but got non-array');
@@ -59,49 +58,24 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
       return null;
     }
     const pkg = await res.json();
-    if (!pkg.name || !pkg.version) {
-      console.log(`[${repoName}] Skipped - invalid package.json`);
-      return null;
-    }
-
-    const dependencies = pkg.dependencies || {};
-    const nhsFrontendVersion = dependencies['nhsuk-frontend'] || null;
-    const govFrontendVersion = dependencies['govuk-frontend'] || null;
-
-    console.log(`[${repoName}] Detected - ${pkg.name} v${pkg.version}`);
-
-    return {
-      name: pkg.name,
-      version: pkg.version,
-      nhsFrontend: nhsFrontendVersion,
-      govFrontend: govFrontendVersion
-    };
+    return pkg;
   } catch (err) {
-    console.error(`[${repoName}] Error fetching package.json: ${err.message}`);
+    console.error(`[${repoName}] Error fetching or parsing package.json: ${err.message}`);
     return null;
   }
 }
 
 function getStatus(repoVersion, latestVersion) {
-  const repoMin = semver.minVersion(repoVersion);
-  if (!repoMin) return { text: '❌ Invalid Version', className: 'outdated' };
+  const minVersion = semver.minVersion(repoVersion);
+  if (!minVersion) return { text: '❓ Unknown', className: 'unknown' };
 
-  if (semver.satisfies(latestVersion, repoVersion)) {
-    if (semver.gt(latestVersion, repoMin)) {
-      return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
-    }
+  if (semver.eq(minVersion, latestVersion)) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
-
-  const sameMajor = semver.major(repoMin) === semver.major(latestVersion);
-  return {
-    text: sameMajor ? '⚠️ Slightly Outdated' : '❌ Outdated',
-    className: sameMajor ? 'slightly-outdated' : 'outdated'
-  };
-}
-
-function compareVersionsDesc(a, b) {
-  return semver.rcompare(a.version, b.version);
+  if (semver.major(minVersion) === semver.major(latestVersion)) {
+    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
+  }
+  return { text: '❌ Outdated', className: 'outdated' };
 }
 
 function generateTable(title, results, latestVersion) {
@@ -121,11 +95,11 @@ function generateTable(title, results, latestVersion) {
       <tbody>
         ${results.map(r => `
           <tr class="${r.className}">
+            <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
             <td>
-              <a href="https://github.com/${ORG}/${r.name}">${r.name}</a><br/>
-              ${r.frontendVersion ? `<small>${r.frontendVersion.name}: ${r.frontendVersion.version}</small>` : ''}
+              ${r.version}<br/>
+              ${r.frontendVersion ? `<small>Frontend: ${r.frontendVersion}</small>` : ''}
             </td>
-            <td>${r.version}</td>
             <td>${r.text}</td>
           </tr>`).join('')}
       </tbody>
@@ -150,27 +124,34 @@ async function run() {
     const pkg = await getPackageDetails(repo.name, repo.default_branch);
     if (!pkg) continue;
 
-    if (pkg.name === 'nhsuk-prototype-kit') {
-      const status = getStatus(pkg.version, nhsLatest);
+    const dependencies = pkg.dependencies || {};
+    const nhsKitVersion = dependencies['nhsuk-prototype-kit'];
+    const govKitVersion = dependencies['govuk-prototype-kit'];
+
+    const nhsFrontendVersion = dependencies['nhsuk-frontend'] || '';
+    const govFrontendVersion = dependencies['govuk-frontend'] || '';
+
+    if (nhsKitVersion) {
+      const status = getStatus(nhsKitVersion, nhsLatest);
       nhsResults.push({
         name: repo.name,
-        version: pkg.version,
-        frontendVersion: pkg.nhsFrontend ? { name: 'nhsuk-frontend', version: pkg.nhsFrontend } : null,
+        version: nhsKitVersion,
+        frontendVersion: nhsFrontendVersion,
         ...status
       });
-    } else if (pkg.name === 'govuk-prototype-kit') {
-      const status = getStatus(pkg.version, govLatest);
+    } else if (govKitVersion) {
+      const status = getStatus(govKitVersion, govLatest);
       govResults.push({
         name: repo.name,
-        version: pkg.version,
-        frontendVersion: pkg.govFrontend ? { name: 'govuk-frontend', version: pkg.govFrontend } : null,
+        version: govKitVersion,
+        frontendVersion: govFrontendVersion,
         ...status
       });
     }
   }
 
-  nhsResults.sort(compareVersionsDesc);
-  govResults.sort(compareVersionsDesc);
+  nhsResults.sort((a, b) => semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version)));
+  govResults.sort((a, b) => semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version)));
 
   const lastUpdated = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -192,6 +173,7 @@ async function run() {
       .uptodate { background-color: #d4edda; }
       .slightly-outdated { background-color: #fff3cd; }
       .outdated { background-color: #f8d7da; }
+      .unknown { background-color: #e2e3e5; }
       .last-updated { margin-top: 1em; font-style: italic; color: #555; }
     </style>
   </head>
