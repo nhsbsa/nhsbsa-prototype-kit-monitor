@@ -28,20 +28,11 @@ async function getAllRepos() {
       }
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`GitHub API error (status ${res.status}): ${errorText}`);
-    }
-
+    if (!res.ok) throw new Error(`GitHub API error (status ${res.status}): ${await res.text()}`);
     const data = await res.json();
-    if (!Array.isArray(data)) {
-      console.error('❌ Unexpected GitHub API response:', data);
-      throw new Error('Expected array of repos but got non-array');
-    }
+    if (!Array.isArray(data)) throw new Error('Expected array of repos but got non-array');
 
-    const activeRepos = data.filter(repo => !repo.archived);
-    repos.push(...activeRepos);
-
+    repos.push(...data.filter(repo => !repo.archived));
     if (data.length < 100) break;
     page++;
   }
@@ -53,34 +44,46 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
   const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
   try {
     const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`[${repoName}] No package.json (HTTP ${res.status})`);
-      return null;
-    }
+    if (!res.ok) return null;
     const pkg = await res.json();
-    return pkg;
+
+    const dependencies = pkg.dependencies || {};
+    const name = pkg.name || '';
+    const version = pkg.version || '';
+    const govKit = name === 'govuk-prototype-kit' || dependencies['govuk-prototype-kit'];
+    const nhsKit = name === 'nhsuk-prototype-kit' || dependencies['nhsuk-prototype-kit'];
+
+    if (!govKit && !nhsKit) return null;
+
+    return {
+      name: name,
+      version: version || dependencies[name],
+      repo: repoName,
+      govKitVersion: name === 'govuk-prototype-kit' ? version : dependencies['govuk-prototype-kit'],
+      nhsKitVersion: name === 'nhsuk-prototype-kit' ? version : dependencies['nhsuk-prototype-kit'],
+      govFrontend: dependencies['govuk-frontend'],
+      nhsFrontend: dependencies['nhsuk-frontend']
+    };
   } catch (err) {
-    console.error(`[${repoName}] Error fetching or parsing package.json: ${err.message}`);
+    console.warn(`[${repoName}] Skipped - ${err.message}`);
     return null;
   }
 }
 
 function getStatus(repoVersion, latestVersion) {
-  const minVersion = semver.minVersion(repoVersion);
-  if (!minVersion) return { text: '❓ Unknown', className: 'unknown' };
-
-  if (semver.eq(minVersion, latestVersion)) {
-    return { text: '✅ Up-To-Date', className: 'uptodate' };
-  }
-  if (semver.major(minVersion) === semver.major(latestVersion)) {
-    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
-  }
+  const minVer = semver.minVersion(repoVersion);
+  if (!minVer) return { text: '❓ Unknown', className: 'unknown' };
+  if (semver.eq(minVer, latestVersion)) return { text: '✅ Up-To-Date', className: 'uptodate' };
+  if (semver.major(minVer) === semver.major(latestVersion)) return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
   return { text: '❌ Outdated', className: 'outdated' };
+}
+
+function compareVersionsDesc(a, b) {
+  return semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version));
 }
 
 function generateTable(title, results, latestVersion) {
   if (results.length === 0) return '';
-
   return `
     <h2>${title}</h2>
     <p>Latest version: <strong>${latestVersion}</strong></p>
@@ -95,16 +98,15 @@ function generateTable(title, results, latestVersion) {
       <tbody>
         ${results.map(r => `
           <tr class="${r.className}">
-            <td><a href="https://github.com/${ORG}/${r.name}">${r.name}</a></td>
             <td>
-              ${r.version}<br/>
-              ${r.frontendVersion ? `<small>Frontend: ${r.frontendVersion}</small>` : ''}
+              <a href="https://github.com/${ORG}/${r.name}">${r.name}</a>
+              ${r.frontend ? `<br/><small>Frontend: ${r.frontend}</small>` : ''}
             </td>
+            <td>${r.version}</td>
             <td>${r.text}</td>
           </tr>`).join('')}
       </tbody>
-    </table>
-  `;
+    </table>`;
 }
 
 async function run() {
@@ -112,9 +114,6 @@ async function run() {
     fetchLatestVersion(NHS_TEMPLATE_PKG_URL),
     fetchLatestVersion(GOV_TEMPLATE_PKG_URL)
   ]);
-
-  console.log(`Latest NHS version: ${nhsLatest}`);
-  console.log(`Latest GOV.UK version: ${govLatest}`);
 
   const repos = await getAllRepos();
   const nhsResults = [];
@@ -124,34 +123,31 @@ async function run() {
     const pkg = await getPackageDetails(repo.name, repo.default_branch);
     if (!pkg) continue;
 
-    const dependencies = pkg.dependencies || {};
-    const nhsKitVersion = dependencies['nhsuk-prototype-kit'];
-    const govKitVersion = dependencies['govuk-prototype-kit'];
-
-    const nhsFrontendVersion = dependencies['nhsuk-frontend'] || '';
-    const govFrontendVersion = dependencies['govuk-frontend'] || '';
-
-    if (nhsKitVersion) {
-      const status = getStatus(nhsKitVersion, nhsLatest);
+    if (pkg.nhsKitVersion) {
+      const version = semver.minVersion(pkg.nhsKitVersion)?.version || pkg.nhsKitVersion;
+      const status = getStatus(version, nhsLatest);
       nhsResults.push({
         name: repo.name,
-        version: nhsKitVersion,
-        frontendVersion: nhsFrontendVersion,
+        version,
+        frontend: pkg.nhsFrontend,
         ...status
       });
-    } else if (govKitVersion) {
-      const status = getStatus(govKitVersion, govLatest);
+    }
+
+    if (pkg.govKitVersion) {
+      const version = semver.minVersion(pkg.govKitVersion)?.version || pkg.govKitVersion;
+      const status = getStatus(version, govLatest);
       govResults.push({
         name: repo.name,
-        version: govKitVersion,
-        frontendVersion: govFrontendVersion,
+        version,
+        frontend: pkg.govFrontend,
         ...status
       });
     }
   }
 
-  nhsResults.sort((a, b) => semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version)));
-  govResults.sort((a, b) => semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version)));
+  nhsResults.sort(compareVersionsDesc);
+  govResults.sort(compareVersionsDesc);
 
   const lastUpdated = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -186,7 +182,7 @@ async function run() {
   </html>`;
 
   fs.writeFileSync(OUTPUT_HTML, html);
-  console.log(`\n✅ Report written to ${OUTPUT_HTML}`);
+  console.log(`✅ Report written to ${OUTPUT_HTML}`);
 }
 
 run().catch(err => {
