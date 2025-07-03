@@ -120,7 +120,7 @@ function generateTable(title, results, latestVersion) {
             <td>
               <a href="https://github.com/${ORG}/${r.name}">${r.name}</a>
               ${r.frontend ? `<br/><small>Frontend: ${r.frontend}</small>` : ''}
-              ${r.lastCommitter ? `<br/><small>Last Committer: ${r.lastCommitter}</small>` : ''}
+              ${r.lastCommitter ? `<br/><small>Last commit made by: ${r.lastCommitter}</small>` : ''}
             </td>
             <td>${r.version}</td>
             <td>${r.text}</td>
