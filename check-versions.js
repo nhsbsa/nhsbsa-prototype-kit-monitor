@@ -70,6 +70,25 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
   }
 }
 
+async function getLastCommitter(repoName, branch = 'main') {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${ORG}/${repoName}/commits?sha=${branch}&per_page=1`, {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        'User-Agent': 'version-check-script'
+      }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const commit = data[0];
+    if (!commit) return null;
+    return commit.commit?.author?.name || commit.author?.login || 'Unknown';
+  } catch (err) {
+    console.warn(`[${repoName}] Failed to get last committer: ${err.message}`);
+    return null;
+  }
+}
+
 function getStatus(repoVersion, latestVersion) {
   const minVer = semver.minVersion(repoVersion);
   if (!minVer) return { text: '❓ Unknown', className: 'unknown' };
@@ -101,6 +120,7 @@ function generateTable(title, results, latestVersion) {
             <td>
               <a href="https://github.com/${ORG}/${r.name}">${r.name}</a>
               ${r.frontend ? `<br/><small>Frontend: ${r.frontend}</small>` : ''}
+              ${r.lastCommitter ? `<br/><small>Last Committer: ${r.lastCommitter}</small>` : ''}
             </td>
             <td>${r.version}</td>
             <td>${r.text}</td>
@@ -123,6 +143,8 @@ async function run() {
     const pkg = await getPackageDetails(repo.name, repo.default_branch);
     if (!pkg) continue;
 
+    const lastCommitter = await getLastCommitter(repo.name, repo.default_branch);
+
     if (pkg.nhsKitVersion) {
       const version = semver.minVersion(pkg.nhsKitVersion)?.version || pkg.nhsKitVersion;
       const status = getStatus(version, nhsLatest);
@@ -130,6 +152,7 @@ async function run() {
         name: repo.name,
         version,
         frontend: pkg.nhsFrontend,
+        lastCommitter,
         ...status
       });
     }
@@ -141,6 +164,7 @@ async function run() {
         name: repo.name,
         version,
         frontend: pkg.govFrontend,
+        lastCommitter,
         ...status
       });
     }
