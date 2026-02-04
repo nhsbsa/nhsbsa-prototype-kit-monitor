@@ -6,15 +6,20 @@ const ORG = 'nhsbsa';
 const OUTPUT_HTML = 'index.html';
 const GITHUB_TOKEN = process.env.GH_TOKEN;
 
-const NHS_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
-const GOV_TEMPLATE_PKG_URL = 'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
+const NHS_TEMPLATE_PKG_URL =
+  'https://raw.githubusercontent.com/nhsuk/nhsuk-prototype-kit/main/package.json';
+const GOV_TEMPLATE_PKG_URL =
+  'https://raw.githubusercontent.com/alphagov/govuk-prototype-kit/main/package.json';
 
 async function fetchLatestVersion(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
+  }
+
   const pkg = await res.json();
 
-  // Prefer dependency version if present (new structure)
+  // NHS kit now declares itself as a dependency
   if (pkg.dependencies?.['nhsuk-prototype-kit']) {
     return pkg.dependencies['nhsuk-prototype-kit'];
   }
@@ -27,16 +32,24 @@ async function getAllRepos() {
   const repos = [];
 
   while (true) {
-    const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100&page=${page}`, {
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        'User-Agent': 'version-check-script'
+    const res = await fetch(
+      `https://api.github.com/orgs/${ORG}/repos?per_page=100&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          'User-Agent': 'version-check-script'
+        }
       }
-    });
+    );
 
-    if (!res.ok) throw new Error(`GitHub API error (status ${res.status}): ${await res.text()}`);
+    if (!res.ok) {
+      throw new Error(`GitHub API error (status ${res.status}): ${await res.text()}`);
+    }
+
     const data = await res.json();
-    if (!Array.isArray(data)) throw new Error('Expected array of repos but got non-array');
+    if (!Array.isArray(data)) {
+      throw new Error('Expected array of repos but got non-array');
+    }
 
     repos.push(...data.filter(repo => !repo.archived));
     if (data.length < 100) break;
@@ -52,18 +65,25 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
+
     const pkg = await res.json();
-
     const dependencies = pkg.dependencies || {};
-    const name = pkg.name || '';
 
+    // NHS Prototype Kit version:
+    // 1) dependency (modern)
+    // 2) top-level version (legacy)
     const nhsKitVersion =
       dependencies['nhsuk-prototype-kit'] ||
-      (name === 'nhsuk-prototype-kit' ? pkg.version : null);
+      (typeof pkg.version === 'string' && semver.valid(pkg.version)
+        ? pkg.version
+        : null);
 
+    // GOV.UK Prototype Kit (same logic)
     const govKitVersion =
       dependencies['govuk-prototype-kit'] ||
-      (name === 'govuk-prototype-kit' ? pkg.version : null);
+      (typeof pkg.version === 'string' && semver.valid(pkg.version)
+        ? pkg.version
+        : null);
 
     if (!nhsKitVersion && !govKitVersion) return null;
 
@@ -82,17 +102,27 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
 
 async function getLastCommitter(repoName, branch = 'main') {
   try {
-    const res = await fetch(`https://api.github.com/repos/${ORG}/${repoName}/commits?sha=${branch}&per_page=1`, {
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        'User-Agent': 'version-check-script'
+    const res = await fetch(
+      `https://api.github.com/repos/${ORG}/${repoName}/commits?sha=${branch}&per_page=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          'User-Agent': 'version-check-script'
+        }
       }
-    });
+    );
+
     if (!res.ok) return null;
+
     const data = await res.json();
     const commit = data[0];
     if (!commit) return null;
-    return commit.commit?.author?.name || commit.author?.login || 'Unknown';
+
+    return (
+      commit.commit?.author?.name ||
+      commit.author?.login ||
+      'Unknown'
+    );
   } catch (err) {
     console.warn(`[${repoName}] Failed to get last committer: ${err.message}`);
     return null;
@@ -105,18 +135,18 @@ function safeMinVersion(v) {
 }
 
 function getStatus(repoVersion, latestVersion) {
-  const minVer = safeMinVersion(repoVersion);
+  const repoMin = safeMinVersion(repoVersion);
   const latestMin = safeMinVersion(latestVersion);
 
-  if (!minVer || !latestMin) {
+  if (!repoMin || !latestMin) {
     return { text: '❓ Unknown', className: 'unknown' };
   }
 
-  if (semver.eq(minVer, latestMin)) {
+  if (semver.eq(repoMin, latestMin)) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
 
-  if (semver.major(minVer) === semver.major(latestMin)) {
+  if (semver.major(repoMin) === semver.major(latestMin)) {
     return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
   }
 
@@ -136,6 +166,7 @@ function compareVersionsDesc(a, b) {
 
 function generateTable(title, results, latestVersion) {
   if (results.length === 0) return '';
+
   return `
     <h2>${title}</h2>
     <p>Latest version: <strong>${latestVersion}</strong></p>
@@ -148,16 +179,22 @@ function generateTable(title, results, latestVersion) {
         </tr>
       </thead>
       <tbody>
-        ${results.map(r => `
+        ${results
+          .map(
+            r => `
           <tr class="${r.className}">
             <td>
               <a href="https://github.com/${ORG}/${r.name}">${r.name}</a>
               ${r.frontend ? `<br/><small>Frontend: ${r.frontend}</small>` : ''}
-              ${r.lastCommitter ? `<br/><small>Last commit made by: ${r.lastCommitter}</small>` : ''}
+              ${r.lastCommitter
+                ? `<br/><small>Last commit made by: ${r.lastCommitter}</small>`
+                : ''}
             </td>
             <td>${r.version}</td>
             <td>${r.text}</td>
-          </tr>`).join('')}
+          </tr>`
+          )
+          .join('')}
       </tbody>
     </table>`;
 }
@@ -209,30 +246,30 @@ async function run() {
   });
 
   const html = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Prototype Kit Version Report</title>
-    <style>
-      body { font-family: sans-serif; padding: 2em; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
-      th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
-      th { background: #eee; }
-      .uptodate { background-color: #d4edda; }
-      .slightly-outdated { background-color: #fff3cd; }
-      .outdated { background-color: #f8d7da; }
-      .unknown { background-color: #e2e3e5; }
-      .last-updated { margin-top: 1em; font-style: italic; color: #555; }
-    </style>
-  </head>
-  <body>
-    <h1>NHSBSA Prototype Kit Version Report</h1>
-    ${generateTable('NHS Prototype Kit', nhsResults, nhsLatest)}
-    ${generateTable('GOV.UK Prototype Kit', govResults, govLatest)}
-    <p class="last-updated">Last Updated: ${lastUpdated}</p>
-  </body>
-  </html>`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prototype Kit Version Report</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: left; }
+    th { background: #eee; }
+    .uptodate { background-color: #d4edda; }
+    .slightly-outdated { background-color: #fff3cd; }
+    .outdated { background-color: #f8d7da; }
+    .unknown { background-color: #e2e3e5; }
+    .last-updated { margin-top: 1em; font-style: italic; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>NHSBSA Prototype Kit Version Report</h1>
+  ${generateTable('NHS Prototype Kit', nhsResults, nhsLatest)}
+  ${generateTable('GOV.UK Prototype Kit', govResults, govLatest)}
+  <p class="last-updated">Last Updated: ${lastUpdated}</p>
+</body>
+</html>`;
 
   fs.writeFileSync(OUTPUT_HTML, html);
   console.log(`✅ Report written to ${OUTPUT_HTML}`);
