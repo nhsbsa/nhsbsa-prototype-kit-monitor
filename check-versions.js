@@ -13,6 +13,12 @@ async function fetchLatestVersion(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch template version from ${url}: HTTP ${res.status}`);
   const pkg = await res.json();
+
+  // Prefer dependency version if present (new structure)
+  if (pkg.dependencies?.['nhsuk-prototype-kit']) {
+    return pkg.dependencies['nhsuk-prototype-kit'];
+  }
+
   return pkg.version;
 }
 
@@ -42,6 +48,7 @@ async function getAllRepos() {
 
 async function getPackageDetails(repoName, defaultBranch = 'main') {
   const url = `https://raw.githubusercontent.com/${ORG}/${repoName}/${defaultBranch}/package.json`;
+
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -49,21 +56,23 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
 
     const dependencies = pkg.dependencies || {};
     const name = pkg.name || '';
-    const version = pkg.version || '';
 
-    const govKit = name === 'govuk-prototype-kit' || dependencies['govuk-prototype-kit'];
-    const nhsKit = name === 'nhsuk-prototype-kit' || dependencies['nhsuk-prototype-kit'];
+    const nhsKitVersion =
+      dependencies['nhsuk-prototype-kit'] ||
+      (name === 'nhsuk-prototype-kit' ? pkg.version : null);
 
-    if (!govKit && !nhsKit) return null;
+    const govKitVersion =
+      dependencies['govuk-prototype-kit'] ||
+      (name === 'govuk-prototype-kit' ? pkg.version : null);
+
+    if (!nhsKitVersion && !govKitVersion) return null;
 
     return {
-      name: name,
-      version: version || dependencies[name],
-      repo: repoName,
-      govKitVersion: name === 'govuk-prototype-kit' ? version : dependencies['govuk-prototype-kit'],
-      nhsKitVersion: name === 'nhsuk-prototype-kit' ? version : dependencies['nhsuk-prototype-kit'],
-      govFrontend: dependencies['govuk-frontend'],
-      nhsFrontend: dependencies['nhsuk-frontend']
+      name: repoName,
+      nhsKitVersion,
+      govKitVersion,
+      nhsFrontend: dependencies['nhsuk-frontend'],
+      govFrontend: dependencies['govuk-frontend']
     };
   } catch (err) {
     console.warn(`[${repoName}] Skipped - ${err.message}`);
@@ -90,28 +99,28 @@ async function getLastCommitter(repoName, branch = 'main') {
   }
 }
 
+function safeMinVersion(v) {
+  if (!v || typeof v !== 'string') return null;
+  return semver.minVersion(v);
+}
+
 function getStatus(repoVersion, latestVersion) {
-  if (!repoVersion || !latestVersion) {
+  const minVer = safeMinVersion(repoVersion);
+  const latestMin = safeMinVersion(latestVersion);
+
+  if (!minVer || !latestMin) {
     return { text: '❓ Unknown', className: 'unknown' };
   }
 
-  const minVer = semver.minVersion(repoVersion);
-  if (!minVer) return { text: '❓ Unknown', className: 'unknown' };
-
-  if (semver.eq(minVer, latestVersion)) {
+  if (semver.eq(minVer, latestMin)) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
 
-  if (semver.major(minVer) === semver.major(latestVersion)) {
+  if (semver.major(minVer) === semver.major(latestMin)) {
     return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
   }
 
   return { text: '❌ Outdated', className: 'outdated' };
-}
-
-function safeMinVersion(v) {
-  if (!v || typeof v !== 'string') return null;
-  return semver.minVersion(v);
 }
 
 function compareVersionsDesc(a, b) {
@@ -134,7 +143,7 @@ function generateTable(title, results, latestVersion) {
       <thead>
         <tr>
           <th>Repository</th>
-          <th>Version</th>
+          <th>Kit Version</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -170,28 +179,22 @@ async function run() {
     const lastCommitter = await getLastCommitter(repo.name, repo.default_branch);
 
     if (pkg.nhsKitVersion) {
-      const version = semver.minVersion(pkg.nhsKitVersion)?.version || pkg.nhsKitVersion;
-      const status = getStatus(version, nhsLatest);
-
       nhsResults.push({
         name: repo.name,
-        version,
+        version: pkg.nhsKitVersion,
         frontend: pkg.nhsFrontend,
         lastCommitter,
-        ...status
+        ...getStatus(pkg.nhsKitVersion, nhsLatest)
       });
     }
 
     if (pkg.govKitVersion) {
-      const version = semver.minVersion(pkg.govKitVersion)?.version || pkg.govKitVersion;
-      const status = getStatus(version, govLatest);
-
       govResults.push({
         name: repo.name,
-        version,
+        version: pkg.govKitVersion,
         frontend: pkg.govFrontend,
         lastCommitter,
-        ...status
+        ...getStatus(pkg.govKitVersion, govLatest)
       });
     }
   }
