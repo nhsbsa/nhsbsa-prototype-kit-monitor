@@ -50,6 +50,7 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
     const dependencies = pkg.dependencies || {};
     const name = pkg.name || '';
     const version = pkg.version || '';
+
     const govKit = name === 'govuk-prototype-kit' || dependencies['govuk-prototype-kit'];
     const nhsKit = name === 'nhsuk-prototype-kit' || dependencies['nhsuk-prototype-kit'];
 
@@ -90,15 +91,38 @@ async function getLastCommitter(repoName, branch = 'main') {
 }
 
 function getStatus(repoVersion, latestVersion) {
+  if (!repoVersion || !latestVersion) {
+    return { text: '❓ Unknown', className: 'unknown' };
+  }
+
   const minVer = semver.minVersion(repoVersion);
   if (!minVer) return { text: '❓ Unknown', className: 'unknown' };
-  if (semver.eq(minVer, latestVersion)) return { text: '✅ Up-To-Date', className: 'uptodate' };
-  if (semver.major(minVer) === semver.major(latestVersion)) return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
+
+  if (semver.eq(minVer, latestVersion)) {
+    return { text: '✅ Up-To-Date', className: 'uptodate' };
+  }
+
+  if (semver.major(minVer) === semver.major(latestVersion)) {
+    return { text: '⚠️ Slightly Outdated', className: 'slightly-outdated' };
+  }
+
   return { text: '❌ Outdated', className: 'outdated' };
 }
 
+function safeMinVersion(v) {
+  if (!v || typeof v !== 'string') return null;
+  return semver.minVersion(v);
+}
+
 function compareVersionsDesc(a, b) {
-  return semver.rcompare(semver.minVersion(a.version), semver.minVersion(b.version));
+  const av = safeMinVersion(a.version);
+  const bv = safeMinVersion(b.version);
+
+  if (!av && !bv) return 0;
+  if (!av) return 1;
+  if (!bv) return -1;
+
+  return semver.rcompare(av, bv);
 }
 
 function generateTable(title, results, latestVersion) {
@@ -148,6 +172,7 @@ async function run() {
     if (pkg.nhsKitVersion) {
       const version = semver.minVersion(pkg.nhsKitVersion)?.version || pkg.nhsKitVersion;
       const status = getStatus(version, nhsLatest);
+
       nhsResults.push({
         name: repo.name,
         version,
@@ -160,6 +185,7 @@ async function run() {
     if (pkg.govKitVersion) {
       const version = semver.minVersion(pkg.govKitVersion)?.version || pkg.govKitVersion;
       const status = getStatus(version, govLatest);
+
       govResults.push({
         name: repo.name,
         version,
