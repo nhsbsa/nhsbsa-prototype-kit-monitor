@@ -69,21 +69,27 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
     const pkg = await res.json();
     const dependencies = pkg.dependencies || {};
 
-    // NHS Prototype Kit version:
-    // 1) dependency (modern)
-    // 2) top-level version (legacy)
-    const nhsKitVersion =
-      dependencies['nhsuk-prototype-kit'] ||
-      (typeof pkg.version === 'string' && semver.valid(pkg.version)
-        ? pkg.version
-        : null);
+    // ✅ MODERN: dependency-based usage
+    const nhsKitFromDeps = dependencies['nhsuk-prototype-kit'];
 
-    // GOV.UK Prototype Kit (same logic)
+    // ✅ LEGACY: only if the repo *is* the kit
+    const nhsKitFromLegacy =
+      pkg.name === 'nhsuk-prototype-kit' &&
+      typeof pkg.version === 'string' &&
+      semver.valid(pkg.version)
+        ? pkg.version
+        : null;
+
+    const nhsKitVersion = nhsKitFromDeps || nhsKitFromLegacy;
+
+    // GOV.UK logic (unchanged but equivalent)
     const govKitVersion =
       dependencies['govuk-prototype-kit'] ||
-      (typeof pkg.version === 'string' && semver.valid(pkg.version)
-        ? pkg.version
-        : null);
+      (pkg.name === 'govuk-prototype-kit' &&
+        typeof pkg.version === 'string' &&
+        semver.valid(pkg.version)
+          ? pkg.version
+          : null);
 
     if (!nhsKitVersion && !govKitVersion) return null;
 
@@ -179,22 +185,16 @@ function generateTable(title, results, latestVersion) {
         </tr>
       </thead>
       <tbody>
-        ${results
-          .map(
-            r => `
+        ${results.map(r => `
           <tr class="${r.className}">
             <td>
               <a href="https://github.com/${ORG}/${r.name}">${r.name}</a>
               ${r.frontend ? `<br/><small>Frontend: ${r.frontend}</small>` : ''}
-              ${r.lastCommitter
-                ? `<br/><small>Last commit made by: ${r.lastCommitter}</small>`
-                : ''}
+              ${r.lastCommitter ? `<br/><small>Last commit made by: ${r.lastCommitter}</small>` : ''}
             </td>
             <td>${r.version}</td>
             <td>${r.text}</td>
-          </tr>`
-          )
-          .join('')}
+          </tr>`).join('')}
       </tbody>
     </table>`;
 }
