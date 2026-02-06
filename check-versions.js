@@ -69,10 +69,9 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
     const pkg = await res.json();
     const dependencies = pkg.dependencies || {};
 
-    // ✅ MODERN: dependency-based usage
+    // NHS Prototype Kit
     const nhsKitFromDeps = dependencies['nhsuk-prototype-kit'];
 
-    // ✅ LEGACY: only if the repo *is* the kit
     const nhsKitFromLegacy =
       pkg.name === 'nhsuk-prototype-kit' &&
       typeof pkg.version === 'string' &&
@@ -82,7 +81,7 @@ async function getPackageDetails(repoName, defaultBranch = 'main') {
 
     const nhsKitVersion = nhsKitFromDeps || nhsKitFromLegacy;
 
-    // GOV.UK logic (unchanged but equivalent)
+    // GOV.UK Prototype Kit
     const govKitVersion =
       dependencies['govuk-prototype-kit'] ||
       (pkg.name === 'govuk-prototype-kit' &&
@@ -140,6 +139,12 @@ function safeMinVersion(v) {
   return semver.minVersion(v);
 }
 
+/**
+ * ✅ UPDATED LOGIC:
+ * - Repo version >= latest → Up-To-Date (green)
+ * - Same major but behind → Slightly Outdated (yellow)
+ * - Older major → Outdated (red)
+ */
 function getStatus(repoVersion, latestVersion) {
   const repoMin = safeMinVersion(repoVersion);
   const latestMin = safeMinVersion(latestVersion);
@@ -148,7 +153,7 @@ function getStatus(repoVersion, latestVersion) {
     return { text: '❓ Unknown', className: 'unknown' };
   }
 
-  if (semver.eq(repoMin, latestMin)) {
+  if (semver.gte(repoMin, latestMin)) {
     return { text: '✅ Up-To-Date', className: 'uptodate' };
   }
 
